@@ -23,6 +23,8 @@ database = sys.argv[1]
 conn = sqlite3.connect(database)
 cursor = conn.cursor()
 
+forbidden_words = ["a","an","the","he","she","it","you","in","out","is","to","for","there","here","where","why","what","how","that","this","some","many","few"]
+
 charley_signal = re.compile("charley")
 charley_control_flag = re.compile("!cc") # for controlling charley
 
@@ -136,6 +138,8 @@ def charley_main(recent_message_list):
 			if message_text not in PARSED_MESSAGES: 
 				print "new signal detected"
 				word_to_find = choose_message_seed(message_text)
+				while word_to_find in forbidden_words:
+					word_to_find = choose_message_seed(message_text)
 				message_to_send = get_rand_message(chatname,word_to_find)
 				send_message_to_chat(message_to_send, chatname)
 			else:
