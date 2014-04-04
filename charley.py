@@ -12,7 +12,7 @@ import random
 import sys
 
 PERMISSIBLE_CHATS = [] # the list of chats it's okay to respond to
-MESSAGES_TO_FETCH_PER_ROUND = 1 # how many messages do you query each time
+MESSAGES_TO_FETCH_PER_ROUND = 5 # how many messages do you query each time
 PARSED_MESSAGES = [str(num) for num in range(MESSAGES_TO_FETCH_PER_ROUND)] # to store messages charley has already responded to
 SPEECH_SETTINGS = {}
 CHARLEY_RESPONSES = [str(num) for num in range(MESSAGES_TO_FETCH_PER_ROUND)]
@@ -27,6 +27,8 @@ forbidden_words = ["a","an","the","he","she","it","you","in","out","is","to","fo
 
 charley_signal = re.compile("charley")
 charley_control_flag = re.compile("!cc") # for controlling charley
+
+apostrophe_search = re.compile("&apos;")
 
 # i'm using a dict for the commands because if i start rolling these into a class i'll just end up rolling everything else into it too and end up with a god class
 die_command = re.compile(r"!cc die")
@@ -71,7 +73,7 @@ def get_rand_message(chat_id,message_word_seed):
 				continue
 		print str(result)
 		result = str(result[0][0])
-		message_to_send = "charley: " + str(result)
+		message_to_send =  str(result)
 		validity_check = evaluate_rand_message(result)
 		#print result
 		if result is not None:
@@ -89,7 +91,7 @@ def send_message_to_chat(message, chat):
 			element.SendMessage(message)
 			CHARLEY_RESPONSES.insert(0,message)
 			del CHARLEY_RESPONSES[-1]
-			print CHARLEY_RESPONSES
+			#print CHARLEY_RESPONSES
 
 def read_control_command(message):
 	# reads the control signal
@@ -129,21 +131,80 @@ def charley_main(recent_message_list):
 		message_text = str(message[0])
 		#print message_text
 		chatname = message[1]
+		#print "checking for signal"
 		if charley_signal.search(message_text, re.IGNORECASE):
 			print "signal seen"
 			#if SPEECH_SETTINGS[chatname] == 1:
 			#if message_text not in PARSED_MESSAGES and message_text not in CHARLEY_RESPONSES: 
-			print message_text
-			print PARSED_MESSAGES
-			if message_text not in PARSED_MESSAGES: 
+			#print message_text
+			#print PARSED_MESSAGES
+			if message_text not in PARSED_MESSAGES and message_text not in CHARLEY_RESPONSES: 
 				print "new signal detected"
-				word_to_find = choose_message_seed(message_text)
-				while word_to_find in forbidden_words:
-					word_to_find = choose_message_seed(message_text)
-				message_to_send = get_rand_message(chatname,word_to_find)
-				send_message_to_chat(message_to_send, chatname)
+				first_word_to_find = choose_message_seed(message_text)
+				second_word_to_find = choose_message_seed(message_text)
+				third_word_to_find = choose_message_seed(message_text)
+				ignore_count = 0
+				while first_word_to_find in forbidden_words:
+					print "it's a bad word, finding a new one"
+					first_word_to_find = choose_message_seed(message_text)
+					ignore_count += 1
+					if ignore_count >= 20:
+						print "ignoring this signal"
+						first_word_to_find = "lol"
+						break
+				while second_word_to_find in forbidden_words:
+					print "it's a bad word, finding a new one"
+					second_word_to_find = choose_message_seed(message_text)
+					ignore_count += 1
+					if ignore_count >= 20:
+						print "ignoring this signal"
+						second_word_to_find = "lol"
+						break
+				while third_word_to_find in forbidden_words:
+					print "it's a bad word, finding a new one"
+					third_word_to_find = choose_message_seed(message_text)
+					ignore_count += 1
+					if ignore_count >= 20:
+						print "ignoring this signal"
+						third_word_to_find = "lol"
+						break
+				first_message_to_compose = get_rand_message(chatname, first_word_to_find) 
+				second_message_to_compose = get_rand_message(chatname, second_word_to_find)
+				third_message_to_compose = get_rand_message(chatname, third_word_to_find)
+				try:
+					first_message_to_compose = first_message_to_compose.split(" ")
+				except:
+					first_message_to_compose = "lol that didnt work".split(" ")
+				try:
+					second_message_to_compose = second_message_to_compose.split(" ")
+				except:
+					second_message_to_compose = "lol that didnt work".split(" ")
+				try:
+					third_message_to_compose = third_message_to_compose.split(" ")
+				except:
+					third_message_to_compose = "lol that didnt work".split(" ")
+				message_to_send = " ".join(first_message_to_compose[0:int(round(len(first_message_to_compose)*1/3))])
+				try:
+					start_point = round(len(second_message_to_compose)*1/3)
+					end_point = round(len(second_message_to_compose)*2/3)
+					message_to_send += " " + " ".join(second_message_to_compose[start_point:end_point])
+				except:
+					print("second message good splitting failed")
+					message_to_send += " " + " ".join(second_message_to_compose[2:5])
+				try:
+					message_to_send += " " + " ".join(third_message_to_compose[round(range(len(third_message_to_compose)*2/3)):len(third_message_to_compose)])
+				except:
+					print("third message good splitting failed")
+					message_to_send += " " + " ".join(third_message_to_compose[-3:])
+				
+				message_to_send = apostrophe_search.sub("'",message_to_send)
+				
+				send_message_to_chat("charley: " + message_to_send, chatname)
+				
+				print("charley: " + message_to_send)
 			else:
 				print "ignoring signal"
+				x=1
 		if charley_control_flag.search(message_text, re.IGNORECASE):
 			read_control_command(message_text)
 		PARSED_MESSAGES.insert(0,message_text)
@@ -158,9 +219,8 @@ print "charley is running"
 
 print "grabbing first messages"
 first_messages = get_recent_messages()
-for element in first_messages:
-	PARSED_MESSAGES.insert(0,element[0])
-	del PARSED_MESSAGES[-1]
+for element_num in range(MESSAGES_TO_FETCH_PER_ROUND):
+	PARSED_MESSAGES[element_num] = first_messages[element_num]
 print "complete"
 	
 for elem in skype.Chats:
